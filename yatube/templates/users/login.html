@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block service_content %}
+  <title>Войти </title>
+{% endblock %}
+{% block content %}
+{% load user_filters %}
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8 p-5">
+        <div class="card">
+          <div class="card-header">
+            Войти на сайт
+          </div>
+          <div class="card-body">
+            {% include 'includes/check_form_error.html' %}
+
+
+            {% if action_url %}
+              <form method="post" action="{% url action_url %}">
+            {% else %}
+              <form method="post">
+            {% endif %}
+
+            {% csrf_token %}
+            {% include 'includes/post_form.html' %}
+            <div class="col-md-6 offset-md-4">
+              <button type="submit" class="btn btn-primary">
+                Войти
+              </button>
+              <a href="{% url 'users:password_reset_form' %}" class="btn btn-link">
+                Забыли пароль?
+              </a>
+            </div>
+            </form>
+          </div> <!-- card body -->
+        </div> <!-- card -->
+      </div> <!-- col -->
+    </div> <!-- row -->
+  </div>
+{% endblock %}
