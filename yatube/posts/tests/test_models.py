@@ -1,9 +1,6 @@
 from django.test import TestCase
-from django.contrib.auth import get_user_model
 from datetime import datetime
-from ..models import Post, Group
-
-User = get_user_model()
+from ..models import User, Post, Group
 
 
 class PostsModelsTest(TestCase):

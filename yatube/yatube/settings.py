@@ -8,14 +8,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+DEBUG = True
 # конвертируем значение поля DEBUG из str в bool
-DEBUG = os.getenv("DEBUG")
-if DEBUG == "True":
-    DEBUG = True
-elif DEBUG == "False":
-    DEBUG = False
-else:
-    DEBUG = True
+DEBUG = bool(int(os.getenv("DEBUG")))
+
+print(DEBUG)
 
 ALLOWED_HOSTS = []
 if not DEBUG:

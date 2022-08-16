@@ -96,7 +96,7 @@ class Comment(models.Model):
         verbose_name_plural = 'Комментарии'
 
     def __str__(self):
-        return 'Комментарий: ' + self.text[:15]
+        return f'Комментарий: {self.text[:15]}'
 
 
 class Follow(models.Model):

@@ -15,11 +15,11 @@ class CustomURLTests(TestCase):
 
     def test_urls_uses_correct_template_for_guests(self):
         """URL-адрес использует соответствующий шаблон для страниц
-        с шоибками."""
-        templates_url_names = [
+        с оибками."""
+        templates_url_names = (
             ('/non-existing_page/',
              'core/404.html'),
-        ]
+        )
         for (url, template) in templates_url_names:
             with self.subTest(url=url):
                 response = self.guest_client.get(url)

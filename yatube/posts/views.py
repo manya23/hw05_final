@@ -1,12 +1,9 @@
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
 from django.views.decorators.cache import cache_page
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post, Group, Comment, Follow
+from .models import User, Post, Group, Comment, Follow
 from .forms import PostForm, CommentForm
 from .paginator import make_pagination
-
-User = get_user_model()
 
 
 @login_required
@@ -80,16 +77,18 @@ def post_detail(request, post_id):
     информацией о посте post_id."""
 
     post_obj = get_object_or_404(Post, pk=post_id)
-    posts_comment = Comment.objects.filter(post=post_obj)
+    posts_comment = Comment.objects.filter(post__comments__pk=post_id)
+    # posts_comment = Comment.objects.filter(post=post_obj)
     comment_form = CommentForm(request.POST or None)
 
     return render(
         request,
         'posts/post_detail.html',
-        {'post': post_obj,
-         'comments': posts_comment,
-         'form': comment_form,
-         }
+        {
+            'post': post_obj,
+            'comments': posts_comment,
+            'form': comment_form,
+        }
     )
 
 
@@ -120,10 +119,11 @@ def post_edit(request, post_id):
     return render(
         request,
         'posts/create_post.html',
-        {'form': post_form,
-         'is_edit': True,
-         'post_id': post_id,
-         }
+        {
+            'form': post_form,
+            'is_edit': True,
+            'post_id': post_id,
+        }
     )
 
 
@@ -144,10 +144,11 @@ def profile(request, username):
     return render(
         request,
         'posts/profile.html',
-        {'page_obj': page_obj,
-         'author': author,
-         'following': following,
-         }
+        {
+            'page_obj': page_obj,
+            'author': author,
+            'following': following,
+        }
     )
 
 
@@ -160,8 +161,7 @@ def follow_index(request):
     return render(
         request,
         'posts/follow.html',
-        {'page_obj': page_obj,
-         }
+        {'page_obj': page_obj}
     )
 
 
@@ -169,10 +169,11 @@ def follow_index(request):
 def profile_follow(request, username):
     """Подписка пользователя на публикации автора username."""
     author = get_object_or_404(User, username=username)
-    follow_exist = Follow.objects.filter(author=author,
-                                         user=request.user).exists()
 
-    if request.user.username == username or follow_exist:
+    if (
+            Follow.objects.filter(author=author, user=request.user).exists()
+            or request.user == author
+    ):
         return redirect('posts:profile', username=username)
 
     Follow.objects.create(author=author,
@@ -185,7 +186,9 @@ def profile_follow(request, username):
 def profile_unfollow(request, username):
     """Отписка пользователя от публикаций автора username."""
     author = get_object_or_404(User, username=username)
-    Follow.objects.get(author=author,
-                       user=request.user).delete()
+    if Follow.objects.filter(author=author,
+                             user=request.user).exists():
+        Follow.objects.get(author=author,
+                           user=request.user).delete()
 
     return redirect('posts:profile', username=username)

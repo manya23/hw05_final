@@ -1,7 +1,6 @@
 import shutil
 import tempfile
 
-from django.contrib.auth import get_user_model
 from django.core.paginator import Page
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
@@ -10,10 +9,9 @@ from django.urls import reverse
 from django import forms
 
 from django.conf import settings
-from ..models import Post, Group, Comment, Follow
+from ..models import User, Post, Group, Comment, Follow
 from ..forms import PostForm
 
-User = get_user_model()
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
@@ -74,13 +72,13 @@ class SingleFixtureTests(TestCase):
     def test_views_for_correct_template_for_authorized(self):
         """URL-адреса используют корректные шаблоны для
         авторизованных пользователей."""
-        templates_url_names = [
+        templates_url_names = (
             (reverse('posts:follow_index'), 'posts/follow.html'),
             (reverse('posts:post_create'), 'posts/create_post.html'),
             (reverse('posts:post_edit',
                      kwargs={'post_id': SingleFixtureTests.post.pk}
                      ), 'posts/create_post.html'),
-        ]
+        )
         for url, template in templates_url_names:
             with self.subTest(url=url):
                 response = self.author_client.get(url)
@@ -88,7 +86,7 @@ class SingleFixtureTests(TestCase):
 
     def test_views_for_correct_template_for_guest(self):
         """URL-адреса используют корректные шаблоны для гостей."""
-        templates_url_names = [
+        templates_url_names = (
             (reverse('posts:index'), 'posts/index.html'),
             (reverse('posts:group_list',
                      kwargs={'slug': SingleFixtureTests.group.slug}
@@ -99,7 +97,7 @@ class SingleFixtureTests(TestCase):
             (reverse('posts:post_detail',
                      kwargs={'post_id': SingleFixtureTests.post.pk}
                      ), 'posts/post_detail.html'),
-        ]
+        )
         for url, template in templates_url_names:
             with self.subTest(url=url):
                 response = self.guest_client.get(url)
@@ -110,13 +108,13 @@ class SingleFixtureTests(TestCase):
     def test_index_show_correct_context(self):
         """Страница '/' возвращает объекты типа Post."""
         # подготовка
-        context = [
+        context = (
             ('author', SingleFixtureTests.post.author),
             ('group', SingleFixtureTests.post.group),
             ('text', SingleFixtureTests.post.text),
             ('pub_date', SingleFixtureTests.post.pub_date),
             ('image', SingleFixtureTests.post.image),
-        ]
+        )
         # действие
         response = self.guest_client.get(reverse('posts:index'))
         post = response.context['page_obj'][0]
@@ -133,13 +131,13 @@ class SingleFixtureTests(TestCase):
     def test_group_show_correct_context(self):
         """На страницу постов группы выводятся только посты
         группы из параметра slug. Проверка всех полей формы."""
-        context = [
+        context = (
             ('group', SingleFixtureTests.group),
             ('author', SingleFixtureTests.post.author),
             ('text', SingleFixtureTests.post.text),
             ('pub_date', SingleFixtureTests.post.pub_date),
             ('image', SingleFixtureTests.post.image),
-        ]
+        )
         check_page_context(
             self,
             'posts:group_list',
@@ -151,13 +149,13 @@ class SingleFixtureTests(TestCase):
     def test_profile_show_correct_context(self):
         """На страницу постов автора выводятся только посты
         автора из параметра username. Проверка всех полей формы."""
-        context = [
+        context = (
             ('author', SingleFixtureTests.author),
             ('group', SingleFixtureTests.post.group),
             ('text', SingleFixtureTests.post.text),
             ('pub_date', SingleFixtureTests.post.pub_date),
             ('image', SingleFixtureTests.post.image),
-        ]
+        )
         check_page_context(
             self,
             'posts:profile',
@@ -174,14 +172,14 @@ class SingleFixtureTests(TestCase):
                     kwargs={'post_id': SingleFixtureTests.post.pk})
         )
         post = response.context['post']
-        context = [
+        context = (
             ('pk', SingleFixtureTests.post.pk),
             ('author', SingleFixtureTests.post.author),
             ('group', SingleFixtureTests.post.group),
             ('text', SingleFixtureTests.post.text),
             ('pub_date', SingleFixtureTests.post.pub_date),
             ('image', SingleFixtureTests.post.image),
-        ]
+        )
         self.assertIsInstance(post, Post)
         check_page_context(
             self,
@@ -199,14 +197,14 @@ class SingleFixtureTests(TestCase):
             reverse('posts:post_edit',
                     kwargs={'post_id': SingleFixtureTests.post.pk})
         )
-        form_fields = [
+        form_fields = (
             ('text',
              (forms.fields.CharField, SingleFixtureTests.post.text)),
             ('group',
              (forms.models.ModelChoiceField, SingleFixtureTests.post.group)),
             ('image',
              (forms.ImageField, SingleFixtureTests.post.image)),
-        ]
+        )
         form = response.context.get('form')
         self.assertIsInstance(form, PostForm)
         # проверка поля контекста 'form'
@@ -224,11 +222,11 @@ class SingleFixtureTests(TestCase):
         """На странице создания поста выводятся форма с
         полями из form_fields."""
         response = self.author_client.get(reverse('posts:post_create'))
-        form_fields = [
+        form_fields = (
             ('text', forms.fields.CharField),
             ('group', forms.models.ModelChoiceField),
             ('image', forms.ImageField),
-        ]
+        )
         form = response.context.get('form')
         self.assertIsInstance(form, PostForm)
         for value, expected in form_fields:
@@ -358,9 +356,9 @@ class SingleFixtureTests(TestCase):
         """Пост с указанной группой отображается на страницах: index,
         group_list - для группы, которой принадлежит пост, profile - для
         автора этого поста."""
-        desired_data = [('group', SingleFixtureTests.post.group),
-                        ('author', SingleFixtureTests.post.author)]
-        pages = [
+        desired_data = (('group', SingleFixtureTests.post.group),
+                        ('author', SingleFixtureTests.post.author))
+        pages = (
             (reverse('posts:index'), desired_data),
             (reverse('posts:group_list',
                      kwargs={'slug': SingleFixtureTests.group.slug}
@@ -368,7 +366,7 @@ class SingleFixtureTests(TestCase):
             (reverse('posts:profile',
                      kwargs={'username': SingleFixtureTests.author.username}
                      ), desired_data),
-        ]
+        )
         for (url, fields) in pages:
             for (field, desired_value) in fields:
                 with self.subTest(field=field):
@@ -470,9 +468,9 @@ class MultiFixtureTests(TestCase):
     def test_group_show_correct_context(self):
         """На страницу постов группы выводятся только посты
         группы из параметра slug."""
-        context = [
+        context = (
             ('group', MultiFixtureTests.group),
-        ]
+        )
         check_page_context(
             self,
             'posts:group_list',
@@ -484,9 +482,9 @@ class MultiFixtureTests(TestCase):
     def test_profile_show_correct_context(self):
         """На страницу постов автора выводятся только посты
         автора из параметра username."""
-        context = [
-            ('author', MultiFixtureTests.author)
-        ]
+        context = (
+            ('author', MultiFixtureTests.author),
+        )
         check_page_context(
             self,
             'posts:profile',
@@ -499,7 +497,7 @@ class MultiFixtureTests(TestCase):
 
     def test_first_page_contains_ten_records(self):
         """На первой странице отображается максимальное число постов."""
-        pages_with_pagination = [
+        pages_with_pagination = (
             (reverse('posts:index'), 'page_obj'),
             (reverse('posts:group_list',
                      kwargs={'slug': MultiFixtureTests.group.slug}
@@ -507,7 +505,7 @@ class MultiFixtureTests(TestCase):
             (reverse('posts:profile',
                      kwargs={'username': MultiFixtureTests.author.username}
                      ), 'page_obj'),
-        ]
+        )
         for (page_path, context_key) in pages_with_pagination:
             with self.subTest(page_path=page_path):
                 response = self.guest_client.get(page_path)
@@ -518,7 +516,7 @@ class MultiFixtureTests(TestCase):
 
     def test_second_page_contains_three_records(self):
         """На второй странице выводится различное число постов."""
-        pages_with_pagination = [
+        pages_with_pagination = (
             (reverse('posts:index'), ('page_obj', 10)),
             (reverse('posts:group_list',
                      kwargs={'slug': MultiFixtureTests.group.slug}
@@ -526,7 +524,7 @@ class MultiFixtureTests(TestCase):
             (reverse('posts:profile',
                      kwargs={'username': MultiFixtureTests.author.username}
                      ), ('page_obj', 3)),
-        ]
+        )
         for (page_path, context_data) in pages_with_pagination:
             with self.subTest(page_path=page_path):
                 response = self.guest_client.get(page_path + '?page=2')
@@ -545,7 +543,7 @@ def check_page_context(test_class,
     :param test_class: объект класса с тестами
     :param str namespace: косвенная url
     :param str context_name: ключ в словаре контекста
-    :param list context_values: пары (поле модели, его жалаемое значение)
+    :param tuple context_values: пары (поле модели, его жалаемое значение)
     :param dict reverse_kwargs: аргументы view-функции для url"""
     # действие
     if reverse_kwargs:

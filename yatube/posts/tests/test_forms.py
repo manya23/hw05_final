@@ -2,14 +2,13 @@ import shutil
 import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from django.conf import settings
-from ..models import Post, Group, Comment
+from ..models import User, Post, Group, Comment
 
-User = get_user_model()
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
@@ -28,6 +27,8 @@ class PostFormTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+
+        cache.clear()
 
     def create_test_post(self):
         """Создание записей в БД."""
@@ -137,26 +138,32 @@ class PostFormTests(TestCase):
         """Валидная форма сохраняется как обновлнение записи в БД."""
         # подготовка: заполнение БД тестовой информацией
         new_img = self.create_image_object('large')
+        new_text = 'Пам-парам-пам-прам-пам-пам'
         _, post = self.create_test_post()
         # содержание полей для отредактированного поста
         form = {
-            'text': 'Пам-парам-пам-прам-пам-пам',
+            'text': new_text,
             'group': 1,
             'image': new_img
         }
-        url = reverse('posts:post_edit',
-                      kwargs={'post_id': post.pk})
         # фиксируем значения до обновления поля БД
         previous_posts_count = Post.objects.count()
         # действие: отправляем POST запрос для обновления БД
-        self.authorized_client.post(url, form)
+        self.authorized_client.post(
+            reverse(
+                'posts:post_edit',
+                kwargs={'post_id': post.pk}
+            ),
+            form
+        )
         # получаем новые данные
         updated_post = Post.objects.first()
-        # проверка: поле поста обновилось, второе осталось прежним,
-        # и не была добавлена новая запись
-        self.assertEqual(post.group, updated_post.group)
+        # проверка: поле текста обновилось, поле изображения обновилось,
+        # поле группы осталось прежним, и не была добавлена новая запись
         self.assertNotEqual(post.text, updated_post.text)
+        self.assertEqual(updated_post.text, new_text)
         self.assertNotEqual(post.image, updated_post.image)
+        self.assertEqual(post.group, updated_post.group)
         self.assertEqual(previous_posts_count, Post.objects.count())
 
     def test_post_edit_skip_data_from_guest(self):
@@ -164,6 +171,7 @@ class PostFormTests(TestCase):
         для гостя."""
         # подготовка: заполнение БД тестовой информацией
         group, post = self.create_test_post()
+        post_id = post.pk
         # содержание полей для отредактированного поста
         form = {
             'text': 'Пам-парам-пам-прам-пам-пам',
@@ -176,11 +184,10 @@ class PostFormTests(TestCase):
         # действие: отправляем POST запрос для обновления БД
         self.guest_client.post(url, form)
         # получаем новые данные
-        new_get_response = self.authorized_client.get(url)
-        form_data = new_get_response.context['form'].initial
+        post_data = Post.objects.get(pk=post_id)
         # проверка: пост не обновился, и не была добавлена новая запись
         self.assertEqual(post.group, group)
-        self.assertEqual(post.text, form_data['text'])
+        self.assertEqual(post.text, post_data.text)
         self.assertEqual(previous_posts_count, Post.objects.count())
 
     def test_post_edit_skip_data_from_other_user(self):
@@ -188,6 +195,7 @@ class PostFormTests(TestCase):
         для авторизованного пользователя, но не автора."""
         # подготовка: заполнение БД тестовой информацией
         group, post = self.create_test_post()
+        post_id = post.pk
         user = User.objects.create_user(
             username='Вася'
         )
@@ -205,11 +213,10 @@ class PostFormTests(TestCase):
         # действие: отправляем POST запрос для обновления БД
         authorized_user.post(url, form)
         # получаем новые данные
-        new_get_response = self.authorized_client.get(url)
-        form_data = new_get_response.context['form'].initial
+        post_data = Post.objects.get(pk=post_id)
         # проверка: пост не обновился, и не была добавлена новая запись
         self.assertEqual(post.group, group)
-        self.assertEqual(post.text, form_data['text'])
+        self.assertEqual(post.text, post_data.text)
         self.assertEqual(previous_posts_count, Post.objects.count())
 
     def test_add_comment_works_for_authorized(self):

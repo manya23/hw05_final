@@ -1,11 +1,10 @@
+import copy
+
 from http import HTTPStatus
 from django.test import TestCase, Client
-from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
-from ..models import Post, Group
-
-User = get_user_model()
+from ..models import User, Post, Group
 
 
 class StaticURLTests(TestCase):
@@ -14,7 +13,6 @@ class StaticURLTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.author = User.objects.create_user(username='Автор поста')
-        # cls.user = User.objects.create_user(username='Не автор поста')
         cls.post = Post.objects.create(
             pk=1,
             text='Ля-ля-ля Ля-ля-ля Ля-ля-ля Ля-ля-ля Ля-ля-ля',
@@ -25,6 +23,44 @@ class StaticURLTests(TestCase):
             slug='test-slug',
             description='Тестовое описание',
         )
+        # список страниц и соответствующих http-статусов
+        cls.url_names = (
+            ('/', HTTPStatus.OK),
+            (f'/group/{cls.group.slug}/', HTTPStatus.OK),
+            (f'/profile/{cls.author.username}/', HTTPStatus.OK),
+            (f'/posts/{cls.post.pk}/', HTTPStatus.OK),
+            ('/non-existing_page', HTTPStatus.NOT_FOUND),
+            (f'/posts/{cls.post.pk}/edit/', HTTPStatus.FOUND),
+        )
+        # для гостей
+        cls.guest_urls_status = copy.deepcopy(
+            cls.url_names
+        ) + (('/follow/', HTTPStatus.FOUND),
+             ('/create/', HTTPStatus.FOUND),)
+        # для авторизованых пользователей
+        cls.auth_urls_status = copy.deepcopy(
+            cls.url_names
+        ) + (('/follow/', HTTPStatus.OK),
+             ('/create/', HTTPStatus.OK),)
+        # список страниц и соответствующих шаблонов
+        # для гостей
+        cls.guest_urls_template = (
+            ('/',
+             'posts/index.html'),
+            (f'/group/{cls.group.slug}/',
+             'posts/group_list.html'),
+            (f'/profile/{cls.author.username}/',
+             'posts/profile.html'),
+            (f'/posts/{cls.post.pk}/',
+             'posts/post_detail.html'),
+        )
+        # для авторизованых пользователей
+        cls.auth_urls_template = copy.deepcopy(
+            cls.guest_urls_template
+        ) + (('/follow/',
+              'posts/follow.html'),
+             ('/create/',
+              'posts/create_post.html'))
 
     def setUp(self) -> None:
         self.guest_client = Client()
@@ -42,41 +78,19 @@ class StaticURLTests(TestCase):
 
     """Тесты доступа к страницам"""
 
-    def test_guest_access_to_pages(self):
-        """Проверка доступности адресов проекта для гостей."""
-        url_names = [
-            ('/', HTTPStatus.OK),
-            ('/follow/', HTTPStatus.FOUND),
-            (f'/group/{StaticURLTests.group.slug}/', HTTPStatus.OK),
-            (f'/profile/{StaticURLTests.author.username}/', HTTPStatus.OK),
-            (f'/posts/{StaticURLTests.post.pk}/', HTTPStatus.OK),
-            ('/non-existing_page', HTTPStatus.NOT_FOUND),
-            ('/create/', HTTPStatus.FOUND),
-            (f'/posts/{StaticURLTests.post.pk}/edit/', HTTPStatus.FOUND),
-        ]
-        for url, desired_response in url_names:
-            with self.subTest(url=url):
-                response = self.guest_client.get(url)
-                self.assertEqual(response.status_code, desired_response)
-
-    def test_authorised_access_to_pages(self):
-        """Проверка доступности адресов проекта для авторизированных
-        пользователей."""
-        authorized_client = self.get_user_client()
-        url_names = [
-            ('/', HTTPStatus.OK),
-            ('/follow/', HTTPStatus.OK),
-            (f'/group/{StaticURLTests.group.slug}/', HTTPStatus.OK),
-            (f'/profile/{StaticURLTests.author.username}/', HTTPStatus.OK),
-            (f'/posts/{StaticURLTests.post.pk}/', HTTPStatus.OK),
-            ('/non-existing_page', HTTPStatus.NOT_FOUND),
-            ('/create/', HTTPStatus.OK),
-            (f'/posts/{StaticURLTests.post.pk}/edit/', HTTPStatus.FOUND),
-        ]
-        for (url, desired_response) in url_names:
-            with self.subTest(url=url):
-                response = authorized_client.get(url)
-                self.assertEqual(response.status_code, desired_response)
+    def test_access_to_pages(self):
+        """Проверка доступности адресов проекта для пользователей."""
+        client_urls_pair = (
+            (self.get_user_client(), StaticURLTests.auth_urls_status),
+            (self.guest_client, StaticURLTests.guest_urls_status)
+        )
+        for (client, url_list) in client_urls_pair:
+            with self.subTest(client=client):
+                for (url, desired_response) in url_list:
+                    with self.subTest(url=url):
+                        response = client.get(url)
+                        self.assertEqual(response.status_code,
+                                         desired_response)
 
     def test_author_page_access(self):
         """Проверка доступа к странице редакирования поста для его автора."""
@@ -86,43 +100,19 @@ class StaticURLTests(TestCase):
 
     """Тесты шаблонов"""
 
-    def test_urls_uses_correct_template_for_guests(self):
-        """URL-адрес использует соответствующий шаблон для гостей."""
-        templates_url_names = [
-            ('/',
-             'posts/index.html'),
-            (f'/group/{StaticURLTests.group.slug}/',
-             'posts/group_list.html'),
-            (f'/profile/{StaticURLTests.author.username}/',
-             'posts/profile.html'),
-            (f'/posts/{StaticURLTests.post.pk}/',
-             'posts/post_detail.html'),
-        ]
-        for (url, template) in templates_url_names:
-            with self.subTest(url=url):
-                response = self.guest_client.get(url)
-                self.assertTemplateUsed(response, template)
-
-    def test_urls_uses_correct_template_for_authorized(self):
-        """URL-адрес использует соответствующий шаблон для пользователей."""
-        templates_url_names = [
-            ('/',
-             'posts/index.html'),
-            ('/follow/',
-             'posts/follow.html'),
-            (f'/group/{StaticURLTests.group.slug}/',
-             'posts/group_list.html'),
-            (f'/profile/{StaticURLTests.author.username}/',
-             'posts/profile.html'),
-            (f'/posts/{StaticURLTests.post.pk}/',
-             'posts/post_detail.html'),
-            ('/create/',
-             'posts/create_post.html'),
-        ]
-        for (url, template) in templates_url_names:
-            with self.subTest(url=url):
-                response = self.author_client.get(url)
-                self.assertTemplateUsed(response, template)
+    def test_urls_uses_correct_template(self):
+        """URL-адрес использует соответствующий шаблон."""
+        client_urls_pair = (
+            (self.author_client, StaticURLTests.auth_urls_template),
+            (self.guest_client, StaticURLTests.guest_urls_template),
+        )
+        for (client, templates_url_names) in client_urls_pair:
+            with self.subTest(client=client):
+                for (url, template) in templates_url_names:
+                    with self.subTest(url=url):
+                        response = client.get(url)
+                        self.assertTemplateUsed(response, template)
+            cache.clear()
 
     def test_url_template_for_post_edit_for_author(self):
         """Проверка отображения верного шаблона на странице редакирования поста
