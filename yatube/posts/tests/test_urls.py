@@ -1,5 +1,3 @@
-import copy
-
 from http import HTTPStatus
 from django.test import TestCase, Client
 from django.core.cache import cache
@@ -33,18 +31,18 @@ class StaticURLTests(TestCase):
             (f'/posts/{cls.post.pk}/edit/', HTTPStatus.FOUND),
         )
         # для гостей
-        cls.guest_urls_status = copy.deepcopy(
-            cls.url_names
-        ) + (('/follow/', HTTPStatus.FOUND),
-             ('/create/', HTTPStatus.FOUND),)
+        cls.guest_urls_status = (
+            ('/follow/', HTTPStatus.FOUND),
+            ('/create/', HTTPStatus.FOUND),
+        )
         # для авторизованых пользователей
-        cls.auth_urls_status = copy.deepcopy(
-            cls.url_names
-        ) + (('/follow/', HTTPStatus.OK),
-             ('/create/', HTTPStatus.OK),)
+        cls.auth_urls_status = (
+            ('/follow/', HTTPStatus.OK),
+            ('/create/', HTTPStatus.OK),
+        )
         # список страниц и соответствующих шаблонов
-        # для гостей
-        cls.guest_urls_template = (
+        # для всех
+        cls.all_urls_template = (
             ('/',
              'posts/index.html'),
             (f'/group/{cls.group.slug}/',
@@ -55,12 +53,12 @@ class StaticURLTests(TestCase):
              'posts/post_detail.html'),
         )
         # для авторизованых пользователей
-        cls.auth_urls_template = copy.deepcopy(
-            cls.guest_urls_template
-        ) + (('/follow/',
-              'posts/follow.html'),
-             ('/create/',
-              'posts/create_post.html'))
+        cls.auth_urls_template = (
+            ('/follow/',
+             'posts/follow.html'),
+            ('/create/',
+             'posts/create_post.html')
+        )
 
     def setUp(self) -> None:
         self.guest_client = Client()
@@ -78,19 +76,25 @@ class StaticURLTests(TestCase):
 
     """Тесты доступа к страницам"""
 
-    def test_access_to_pages(self):
-        """Проверка доступности адресов проекта для пользователей."""
-        client_urls_pair = (
-            (self.get_user_client(), StaticURLTests.auth_urls_status),
-            (self.guest_client, StaticURLTests.guest_urls_status)
-        )
-        for (client, url_list) in client_urls_pair:
-            with self.subTest(client=client):
-                for (url, desired_response) in url_list:
-                    with self.subTest(url=url):
-                        response = client.get(url)
-                        self.assertEqual(response.status_code,
-                                         desired_response)
+    def test_access_to_pages_for_guests(self):
+        """Проверка доступности адресов проекта для гостей."""
+        url_list = StaticURLTests.url_names + StaticURLTests.guest_urls_status
+        for (url, desired_response) in url_list:
+            with self.subTest(url=url):
+                response = self.guest_client.get(url)
+                self.assertEqual(response.status_code,
+                                 desired_response)
+
+    def test_access_to_pages_for_auth(self):
+        """Проверка доступности адресов проекта для авторизованных
+        пользователей."""
+        url_list = StaticURLTests.url_names + StaticURLTests.auth_urls_status
+        auth_user = self.get_user_client()
+        for (url, desired_response) in url_list:
+            with self.subTest(url=url):
+                response = auth_user.get(url)
+                self.assertEqual(response.status_code,
+                                 desired_response)
 
     def test_author_page_access(self):
         """Проверка доступа к странице редакирования поста для его автора."""
@@ -101,18 +105,15 @@ class StaticURLTests(TestCase):
     """Тесты шаблонов"""
 
     def test_urls_uses_correct_template(self):
-        """URL-адрес использует соответствующий шаблон."""
-        client_urls_pair = (
-            (self.author_client, StaticURLTests.auth_urls_template),
-            (self.guest_client, StaticURLTests.guest_urls_template),
-        )
-        for (client, templates_url_names) in client_urls_pair:
-            with self.subTest(client=client):
-                for (url, template) in templates_url_names:
-                    with self.subTest(url=url):
-                        response = client.get(url)
-                        self.assertTemplateUsed(response, template)
-            cache.clear()
+        """URL-адрес использует соответствующий шаблон для
+        отображения на странице."""
+        templates_url_names = (StaticURLTests.all_urls_template
+                               + StaticURLTests.auth_urls_template)
+        auth_user = self.get_user_client()
+        for (url, template) in templates_url_names:
+            with self.subTest(url=url):
+                response = auth_user.get(url)
+                self.assertTemplateUsed(response, template)
 
     def test_url_template_for_post_edit_for_author(self):
         """Проверка отображения верного шаблона на странице редакирования поста
@@ -126,14 +127,14 @@ class StaticURLTests(TestCase):
     def test_redirect_guest_on_auth_login(self):
         """Проверяем редиректы неавторизованного пользователя
         на страницу логина."""
-        urls = [
+        urls = (
             ('/follow/',
              '/auth/login/?next=/follow/'),
             ('/create/',
              '/auth/login/?next=/create/'),
             (f'/posts/{StaticURLTests.post.pk}/edit/',
              f'/auth/login/?next=/posts/{StaticURLTests.post.pk}/edit/'),
-        ]
+        )
         for (origin_url, redirect_url) in urls:
             with self.subTest(url=origin_url):
                 response = self.guest_client.get(origin_url, follow=True)
@@ -144,12 +145,12 @@ class StaticURLTests(TestCase):
         для различных случаев."""
         authorized_client = self.get_user_client()
         origin_url = f'/posts/{StaticURLTests.post.pk}/edit/'
-        user_redirect = [
+        user_redirect = (
             (self.guest_client,
-             f'/auth/login/?next=/posts/{StaticURLTests.post.pk}/edit/'),
+             f'/auth/login/?next={origin_url}'),
             (authorized_client,
              f'/posts/{StaticURLTests.post.pk}/'),
-        ]
+        )
         for (user, redirect_url) in user_redirect:
             response = user.get(origin_url, follow=True)
             with self.subTest(user=response):

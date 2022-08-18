@@ -167,7 +167,7 @@ class PostFormTests(TestCase):
         self.assertEqual(previous_posts_count, Post.objects.count())
 
     def test_post_edit_skip_data_from_guest(self):
-        """Валидная форма не сохраняется как обновлнение записи в БД
+        """Валидная форма не сохраняется как обновление записи в БД
         для гостя."""
         # подготовка: заполнение БД тестовой информацией
         group, post = self.create_test_post()

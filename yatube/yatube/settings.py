@@ -12,8 +12,6 @@ DEBUG = True
 # конвертируем значение поля DEBUG из str в bool
 DEBUG = bool(int(os.getenv("DEBUG")))
 
-print(DEBUG)
-
 ALLOWED_HOSTS = []
 if not DEBUG:
     ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(' ')

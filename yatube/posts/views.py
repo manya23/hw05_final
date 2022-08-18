@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import cache_page
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import User, Post, Group, Comment, Follow
+from .models import User, Post, Group, Follow
 from .forms import PostForm, CommentForm
 from .paginator import make_pagination
 
@@ -77,8 +77,7 @@ def post_detail(request, post_id):
     информацией о посте post_id."""
 
     post_obj = get_object_or_404(Post, pk=post_id)
-    posts_comment = Comment.objects.filter(post__comments__pk=post_id)
-    # posts_comment = Comment.objects.filter(post=post_obj)
+    posts_comment = post_obj.comments.filter(pk=post_id)
     comment_form = CommentForm(request.POST or None)
 
     return render(
@@ -135,11 +134,9 @@ def profile(request, username):
     post_list = author.posts.select_related('group').all()
     page_obj = make_pagination(request, post_list)
 
-    if request.user.is_authenticated:
-        following = Follow.objects.filter(author=author,
-                                          user=request.user).exists()
-    else:
-        following = False
+    following = (request.user.is_authenticated
+                 and author.following.filter(user=request.user).exists()
+                 )
 
     return render(
         request,
@@ -186,9 +183,9 @@ def profile_follow(request, username):
 def profile_unfollow(request, username):
     """Отписка пользователя от публикаций автора username."""
     author = get_object_or_404(User, username=username)
-    if Follow.objects.filter(author=author,
-                             user=request.user).exists():
-        Follow.objects.get(author=author,
-                           user=request.user).delete()
+    follow_obj = Follow.objects.filter(author=author,
+                                       user=request.user)
+    if follow_obj.exists():
+        follow_obj.delete()
 
     return redirect('posts:profile', username=username)
